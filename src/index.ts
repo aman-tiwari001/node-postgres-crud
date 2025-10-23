@@ -1,26 +1,36 @@
-import express from 'express';
 import cors from 'cors';
-import pool from './config/db.js';
 import morgan from 'morgan';
+import express, { type Request, type Response } from 'express';
+import { setupDB } from './data/setupDB.js';
+import userRoutes from './routes/userRoutes.js';
+import errorHandler from './middlewares/errorHandler.js';
+import responseHandler from './utils/responseHandler.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middlewares
-app.use(morgan('dev'))
+app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE'] }));
 
+// Setup database (create DB and tables if not exist)
+setupDB();
+
 // Routes
-app.get('/', (req, res) => {
-	res.send('Hello, World! 🤖');
+app.get('/', (req: Request, res: Response) => {
+	responseHandler(res, 200, null, 'Hello World 🐘');
 });
 
-app.use('/db', async (req, res) => {
-	const db = await pool.query('SELECT current_database();');
-	console.log(db.rows[0]);
-	res.send(db.rows[0]);
+app.use('/api/v1/users', userRoutes);
+
+// Handle undefined routes
+app.use((req: Request, res: Response) => {
+	responseHandler(res, 404, null, `Route ${req.method} ${req.url} not found`);
 });
+
+// Centralized Error handling middleware
+app.use(errorHandler);
 
 // Start the server
 app.listen(PORT, () => {
