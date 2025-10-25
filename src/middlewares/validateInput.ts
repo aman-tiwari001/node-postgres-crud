@@ -6,8 +6,13 @@ const userSchema = Joi.object({
 	last_name: Joi.string().min(1).max(50).required(),
 	email: Joi.string().email().max(150).required(),
 	phone: Joi.string().min(7).max(20),
-	city: Joi.string().min(1).max(100),
-	country: Joi.string().min(1).max(100),
+	address: Joi.object({
+		street: Joi.string().min(1).max(150),
+		city: Joi.string().min(1).max(100).required(),
+		state: Joi.string().min(1).max(100).required(),
+		zip_code: Joi.string().min(1).max(20).required(),
+		country: Joi.string().min(1).max(100).required(),
+	}).required(),
 });
 
 const validateUserSchema = (
@@ -23,7 +28,7 @@ const validateUserSchema = (
 	if (result.error) {
 		throw new Error(`Validation error: ${result.error.message}`);
 	}
-  
+
 	req.body = result.value;
 	next();
 };
@@ -35,7 +40,7 @@ const validatePartialUserSchema = (
 ) => {
 	const result = userSchema
 		.fork(
-			['first_name', 'last_name', 'email', 'phone', 'city', 'country'],
+			['first_name', 'last_name', 'email', 'phone', 'address'],
 			(schema) => schema.optional()
 		)
 		.validate(req.body, { abortEarly: false, stripUnknown: true });

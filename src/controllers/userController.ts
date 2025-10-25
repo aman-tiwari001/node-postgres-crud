@@ -36,14 +36,13 @@ const getUserById = async (req: Request, res: Response, next: NextFunction) => {
 // POST /api/v1/users - Create a new user
 const createUser = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { first_name, last_name, email, phone, city, country } = req.body;
+		const { first_name, last_name, email, phone, address } = req.body;
 		const newUser = await createUserService({
 			first_name,
 			last_name,
 			email,
 			phone,
-			city,
-			country,
+			address,
 		} as UserType);
 		responseHandler(res, 201, newUser, 'User created successfully');
 	} catch (error) {
@@ -55,14 +54,13 @@ const createUser = async (req: Request, res: Response, next: NextFunction) => {
 const updateUser = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const { id } = req.params;
-		const { first_name, last_name, email, phone, city, country } = req.body;
+		const { first_name, last_name, email, phone, address } = req.body;
 		const updatedUser = await updateUserService(Number(id), {
 			first_name,
 			last_name,
 			email,
 			phone,
-			city,
-			country,
+			address,
 		} as Partial<UserType>);
 		if (!updatedUser) {
 			return responseHandler(res, 404, null, 'User not found');

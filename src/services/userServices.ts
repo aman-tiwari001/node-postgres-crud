@@ -1,14 +1,29 @@
 import pool from '../config/db.js';
-import type { UserType } from '../types/index.js';
+import type { AddressType, UserType } from '../types/index.js';
 
 /**
- * To get all users
+ * To get all users along with their addresses
  * @param none
  * @returns Array of Users
  */
-
 const getAllUsersService = async () => {
-	const result = await pool.query('SELECT * FROM users;');
+	const result = await pool.query(`
+	SELECT 
+		u.id,
+		u.first_name,
+		u.last_name,
+		u.email,
+		u.phone,
+		a.street,
+		a.city,
+		a.state,
+		a.zip_code,
+		a.country,
+		u.created_at
+	FROM users u
+	LEFT JOIN addresses a 
+  ON u.id = a.user_id;
+`);
 	return result.rows;
 };
 
@@ -18,7 +33,25 @@ const getAllUsersService = async () => {
  * @returns A user
  */
 const getUserByIdService = async (id: number) => {
-	const result = await pool.query('SELECT * FROM users WHERE id = $1;', [id]);
+	const result = await pool.query(
+		`
+		SELECT 
+			u.id,
+			u.first_name,
+			u.last_name,
+			u.email,
+			u.phone,
+			a.street,
+			a.city,
+			a.state,
+			a.zip_code,
+			a.country,
+			u.created_at
+		FROM users u, addresses a
+		WHERE u.id = $1
+		AND a.user_id = $1;`,
+		[id]
+	);
 	return result.rows[0];
 };
 
@@ -28,12 +61,34 @@ const getUserByIdService = async (id: number) => {
  * @returns Created user
  */
 const createUserService = async (userData: UserType) => {
-	const { first_name, last_name, email, phone, city, country } = userData;
-	const result = await pool.query(
-		'INSERT INTO users (first_name, last_name, email, phone, city, country) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *;',
-		[first_name, last_name, email, phone, city, country]
+	const { first_name, last_name, email, phone, address } = userData;
+	const { street, city, state, zip_code, country } = address;
+
+	const userResult = await pool.query(
+		`
+		INSERT 
+		INTO users (first_name, last_name, email, phone) 
+		VALUES ($1, $2, $3, $4) 
+		RETURNING id, first_name, last_name, email, phone;`,
+		[first_name, last_name, email, phone]
 	);
-	return result.rows[0];
+	console.log(userResult.rows);
+
+	const addressResult = await pool.query(
+		`
+		INSERT 
+		INTO addresses (user_id, street, city, state, zip_code, country) 
+		VALUES ($1, $2, $3, $4, $5, $6) 
+		RETURNING street, city, state, zip_code, country;`,
+		[userResult.rows[0].id, street, city, state, zip_code, country]
+	);
+	console.log(addressResult.rows);
+
+	const result = {
+		...userResult.rows[0],
+		...addressResult.rows[0],
+	};
+	return result;
 };
 
 /**
@@ -43,12 +98,41 @@ const createUserService = async (userData: UserType) => {
  * @returns Updated user
  */
 const updateUserService = async (id: number, userData: Partial<UserType>) => {
-	const { first_name, last_name, email, phone, city, country } = userData;
-	const result = await pool.query(
-		'UPDATE users SET first_name = COALESCE($1, first_name), last_name = COALESCE($2, last_name), email = COALESCE($3, email), phone = COALESCE($4, phone), city = COALESCE($5, city), country = COALESCE($6, country) WHERE id = $7 RETURNING *;',
-		[first_name, last_name, email, phone, city, country, id]
+	const { first_name, last_name, email, phone, address } = userData;
+	const { street, city, state, zip_code, country } = address || {};
+
+	const userResult = await pool.query(
+		`
+		UPDATE users 
+		SET 
+		 	first_name = COALESCE($1, first_name), 
+			last_name = COALESCE($2, last_name), 
+			email = COALESCE($3, email), 
+			phone = COALESCE($4, phone) 
+		WHERE id = $5 
+		RETURNING id, first_name, last_name, email, phone;`,
+		[first_name, last_name, email, phone, id]
 	);
-	return result.rows[0];
+
+	const addressResult = await pool.query(
+		`
+		UPDATE addresses
+		SET 
+			street = COALESCE($1, street), 
+			city = COALESCE($2, city),
+			state = COALESCE($3, state),
+			zip_code = COALESCE($4, zip_code),	
+			country = COALESCE($5, country)
+		WHERE user_id = $6 
+		RETURNING street, city, state, zip_code, country;`,
+		[street, city, state, zip_code, country, id]
+	);
+
+	const result = {
+		...userResult.rows[0],
+		...addressResult.rows[0],
+	};
+	return result;
 };
 
 /**
@@ -58,7 +142,11 @@ const updateUserService = async (id: number, userData: Partial<UserType>) => {
  */
 const deleteUserService = async (id: number) => {
 	const result = await pool.query(
-		'DELETE FROM users WHERE id = $1 RETURNING *;',
+		`
+		DELETE 
+		FROM users 
+		WHERE id = $1 
+		RETURNING *;`,
 		[id]
 	);
 	return result.rows[0];
